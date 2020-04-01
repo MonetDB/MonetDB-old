@@ -20,10 +20,9 @@ hh_move(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     str username = "monetdb";
     str password = "monetdb";
     str lang = "sql";
-    str dbalias = "mdb1";
     str msg = MAL_SUCCEED;
 
-    str *home_node, *landscape, *next_node, host, token;
+    str *home_node, *landscape, *next_node, host, dbalias, token;
     int *next_node_idx, port, idx;
     Mapi dbh;
 
@@ -39,33 +38,29 @@ hh_move(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     token = strtok(*next_node, delim);
     host = token;
     if(!host)
-    {
-        fprintf(stderr, "Could not parse connection string\n");
-        return msg;
-    }
+        goto parse_connection;
 
-    while(token != NULL) {
-        token = strtok(NULL, delim);
-        if(token)
-            port = atoi(token);
-    }
+    token = strtok(NULL, delim);
+    if(!token)
+        goto parse_connection;
+    port = atoi(token);
 
-    if(!port)
-    {
-        fprintf(stderr, "Could not parse connection string\n");
-        return msg;
-    }
+    token = strtok(NULL, delim);
+    dbalias = token;
+    if(!dbalias)
+        goto parse_connection;
+
 
     // connect to the next node 
     // TODO: change dbname
     dbh = mapi_connect(host, port, username, password, lang, dbalias);
     if(mapi_error(dbh)) 
-        fprintf(stderr, "Failed to connect to node %s:%d\n", host, port);
+        fprintf(stderr, "Failed to connect to node %s:%d:%s\n", host, port, dbalias);
 
-    fprintf(stderr, "Connect to node %s:%d\n", host, port);
+    fprintf(stderr, "Connect to node %s:%d:%s\n", host, port, dbalias);
 
     mapi_destroy(dbh); 
-    fprintf(stderr, "Disconnected from node %s:%d\n", host, port);
+    fprintf(stderr, "Disconnected from node %s:%d:%s\n", host, port, dbalias);
 
 
 
@@ -76,4 +71,8 @@ hh_move(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr pci)
     next_node_idx = getArgReference_int(stk, pci, 2);
     
     return msg;
+
+    parse_connection:
+        fprintf(stderr, "Could not parse connection string\n");
+	    return msg;
 }

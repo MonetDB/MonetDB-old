@@ -31,9 +31,9 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
     str home_node = "localhost:50000";
     int next_node_idx = 2;
     const char* landscape[3] = {
-        "localhost:50000",
-        "localhost:50001",
-        "localhost:50002",
+        "localhost:50000:mdb1",
+        "localhost:50001:mdb2",
+        "localhost:50002:mdb3",
     };
 
     // check if optimizer has been applied
