@@ -101,9 +101,14 @@ rel_find_table_columns(mvc* sql, sql_rel* rel, sql_table *t, list *cols)
 			exp_find_table_columns(sql, (sql_exp*) n->data, t, cols);
 
 	switch (rel->op) {
-		case op_table:
 		case op_basetable:
-		case op_ddl:
+		case op_truncate:
+			break;
+		case op_table:
+			if (IS_TABLE_PROD_FUNC(rel->flag) || rel->flag == TABLE_FROM_RELATION) {
+				if (rel->l)
+					rel_find_table_columns(sql, rel->l, t, cols);
+			}
 			break;
 		case op_join:
 		case op_left:
@@ -130,9 +135,19 @@ rel_find_table_columns(mvc* sql, sql_rel* rel, sql_table *t, list *cols)
 		case op_insert:
 		case op_update:
 		case op_delete:
-		case op_truncate:
 			if (rel->r)
 				rel_find_table_columns(sql, rel->r, t, cols);
+			break;
+		case op_ddl: 
+			if (rel->flag == ddl_output || rel->flag == ddl_create_seq || rel->flag == ddl_alter_seq || rel->flag == ddl_alter_table || rel->flag == ddl_create_table || rel->flag == ddl_create_view) {
+				if (rel->l)
+					rel_find_table_columns(sql, rel->l, t, cols);
+			} else if (rel->flag == ddl_list || rel->flag == ddl_exception) {
+				if (rel->l)
+					rel_find_table_columns(sql, rel->l, t, cols);
+				if (rel->r)
+					rel_find_table_columns(sql, rel->r, t, cols);
+			}
 			break;
 	}
 }
@@ -308,7 +323,7 @@ initialize_sql_parts(mvc *sql, sql_table *mt)
 	find_partition_type(&found, mt);
 	localtype = found.type->localtype;
 	if (isPartitionedByExpressionTable(mt)) /* Propagate type to outer transaction table */
-		dup_sql_type(tr, mt->s, &(mt->part.pexp->type), &(mt->po->part.pexp->type));
+		mt->po->part.pexp->type = mt->part.pexp->type;
 
 	if (localtype != TYPE_str && mt->members.set && list_length(mt->members.set)) {
 		list *new = sa_list(tr->sa), *old = sa_list(tr->sa);
@@ -320,7 +335,7 @@ initialize_sql_parts(mvc *sql, sql_table *mt)
 			base_init(tr->sa, &p->base, pt->base.id, TR_NEW, pt->base.name);
 			p->t = mt;
 			assert(isMergeTable(mt) || isReplicaTable(mt));
-			dup_sql_type(tr, mt->s, &found, &(p->tpe));
+			p->tpe = found;
 			p->with_nills = next->with_nills;
 
 			if (isListPartitionTable(mt)) {
@@ -416,11 +431,13 @@ initialize_sql_parts(mvc *sql, sql_table *mt)
 				goto finish;
 			}
 			pt->s->base.wtime = pt->base.wtime = tr->wtime = tr->wstime;
-			tr->schema_updates++;
+			if (isGlobal(pt))
+				tr->schema_updates++;
 		}
 	}
 	mt->s->base.wtime = mt->base.wtime = tr->wtime = tr->wstime;
-	tr->schema_updates++;
+	if (isGlobal(mt))
+		tr->schema_updates++;
 finish:
 	return res;
 }

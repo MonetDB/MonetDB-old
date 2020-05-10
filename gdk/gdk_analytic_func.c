@@ -270,7 +270,7 @@ GDKanalyticalntile(BAT *r, BAT *b, BAT *p, BAT *n, int tpe, const void *restrict
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
 nosupport:
-	GDKerror("GDKanalyticalntile: type %s not supported for the ntile type.\n", ATOMname(tpe));
+	GDKerror("type %s not supported for the ntile type.\n", ATOMname(tpe));
 	return GDK_FAIL;
 }
 
@@ -647,7 +647,7 @@ GDKanalyticalnthvalue(BAT *r, BAT *b, BAT *s, BAT *e, BAT *l, const void *restri
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
       nosupport:
-	GDKerror("GDKanalyticalnthvalue: type %s not supported for the nth_value.\n", ATOMname(tp2));
+	GDKerror("type %s not supported for the nth_value.\n", ATOMname(tp2));
 	return GDK_FAIL;
 }
 
@@ -1330,10 +1330,10 @@ GDKanalyticalsum(BAT *r, BAT *b, BAT *s, BAT *e, int tp1, int tp2)
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
       bailout:
-	GDKerror("GDKanalyticalsum: error while calculating floating-point sum\n");
+	GDKerror("error while calculating floating-point sum\n");
 	return GDK_FAIL;
       nosupport:
-	GDKerror("GDKanalyticalsum: type combination (sum(%s)->%s) not supported.\n", ATOMname(tp1), ATOMname(tp2));
+	GDKerror("type combination (sum(%s)->%s) not supported.\n", ATOMname(tp1), ATOMname(tp2));
 	return GDK_FAIL;
       calc_overflow:
 	GDKerror("22003!overflow in calculation.\n");
@@ -1568,7 +1568,7 @@ GDKanalyticalprod(BAT *r, BAT *b, BAT *s, BAT *e, int tp1, int tp2)
 	r->tnil = has_nils;
 	return GDK_SUCCEED;
       nosupport:
-	GDKerror("GDKanalyticalprod: type combination (prod(%s)->%s) not supported.\n", ATOMname(tp1), ATOMname(tp2));
+	GDKerror("type combination (prod(%s)->%s) not supported.\n", ATOMname(tp1), ATOMname(tp2));
 	return GDK_FAIL;
       calc_overflow:
 	GDKerror("22003!overflow in calculation.\n");
@@ -1691,7 +1691,7 @@ GDKanalyticalavg(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 		ANALYTICAL_AVERAGE_CALC_FP(dbl);
 		break;
 	default:
-		GDKerror("GDKanalyticalavg: average of type %s unsupported.\n", ATOMname(tpe));
+		GDKerror("average of type %s unsupported.\n", ATOMname(tpe));
 		return GDK_FAIL;
 	}
 	BATsetcount(r, cnt);
@@ -1711,14 +1711,13 @@ GDKanalyticalavg(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 				if (is_##TPE##_nil(v))		\
 					continue;		\
 				n++;				\
-				SUBF_WITH_CHECK((dbl) v, mean, dbl, delta, GDK_dbl_max, goto calc_overflow); \
-				dn = delta / n; \
-				ADDF_WITH_CHECK(dn, mean, dbl, mean, GDK_dbl_max, goto calc_overflow); \
-				SUBF_WITH_CHECK((dbl) v, mean, dbl, dn, GDK_dbl_max, goto calc_overflow); \
-				MULF4_WITH_CHECK(delta, dn, dbl, dn2, GDK_dbl_max, dbl, goto calc_overflow); \
-				ADDF_WITH_CHECK(m2, dn2, dbl, m2, GDK_dbl_max, goto calc_overflow); \
+				delta = (dbl) v - mean;		\
+				mean += delta / n;		\
+				m2 += delta * ((dbl) v - mean);	\
 			}						\
-			if (n > SAMPLE) { \
+			if (isinf(m2)) {	\
+				goto overflow;		\
+			} else if (n > SAMPLE) { \
 				*rb = OP; \
 			} else { \
 				*rb = dbl_nil; \
@@ -1743,10 +1742,9 @@ GDKanalyticalavg(BAT *r, BAT *b, BAT *s, BAT *e, int tpe)
 gdk_return \
 GDKanalytical_##NAME(BAT *r, BAT *b, BAT *s, BAT *e, int tpe) \
 { \
-	bool abort_on_error = true; \
 	BUN i = 0, cnt = BATcount(b), n = 0, nils = 0; \
 	lng *restrict start, *restrict end; \
-	dbl *restrict rb = (dbl *) Tloc(r, 0), mean = 0, m2 = 0, delta, dn, dn2; \
+	dbl *restrict rb = (dbl *) Tloc(r, 0), mean = 0, m2 = 0, delta; \
  \
 	assert(s && e); \
 	start = (lng *) Tloc(s, 0); \
@@ -1773,14 +1771,14 @@ GDKanalytical_##NAME(BAT *r, BAT *b, BAT *s, BAT *e, int tpe) \
 		ANALYTICAL_STDEV_VARIANCE_CALC(dbl, SAMPLE, OP); \
 		break; \
 	default: \
-		GDKerror("%s: %s of type %s unsupported.\n", __func__, DESC, ATOMname(tpe)); \
+		GDKerror("%s of type %s unsupported.\n", DESC, ATOMname(tpe)); \
 		return GDK_FAIL; \
 	} \
 	BATsetcount(r, cnt); \
 	r->tnonil = nils == 0; \
 	r->tnil = nils > 0; \
 	return GDK_SUCCEED; \
-calc_overflow: \
+  overflow: \
 	GDKerror("22003!overflow in calculation.\n"); \
 	return GDK_FAIL; \
 }
@@ -1809,7 +1807,9 @@ GDK_ANALYTICAL_STDEV_VARIANCE(variance_pop, 0, m2 / n, "variance")
 				mean2 += delta2 / n;		\
 				m2 += delta1 * ((dbl) v2 - mean2);	\
 			}	\
-			if (n > SAMPLE) { \
+			if (isinf(m2)) {	\
+				goto overflow;		\
+			} else if (n > SAMPLE) { \
 				*rb = OP; \
 			} else { \
 				*rb = dbl_nil; \
@@ -1864,13 +1864,16 @@ GDKanalytical_##NAME(BAT *r, BAT *b1, BAT *b2, BAT *s, BAT *e, int tpe) \
 		ANALYTICAL_COVARIANCE_CALC(dbl, SAMPLE, OP); \
 		break; \
 	default: \
-		GDKerror("%s: covariance of type %s unsupported.\n", __func__, ATOMname(tpe)); \
+		GDKerror("covariance of type %s unsupported.\n", ATOMname(tpe)); \
 		return GDK_FAIL; \
 	} \
 	BATsetcount(r, cnt); \
 	r->tnonil = nils == 0; \
 	r->tnil = nils > 0; \
 	return GDK_SUCCEED; \
+  overflow: \
+	GDKerror("22003!overflow in calculation.\n"); \
+	return GDK_FAIL; \
 }
 
 GDK_ANALYTICAL_COVARIANCE(covariance_samp, 1, m2 / (n - 1))
@@ -1898,7 +1901,9 @@ GDK_ANALYTICAL_COVARIANCE(covariance_pop, 0, m2 / n)
 				down1 += delta1 * ((dbl) v1 - mean1);	\
 				down2 += delta2 * aux;	\
 			}	\
-			if (n > 0 && up > 0 && down1 > 0 && down2 > 0) { \
+			if (isinf(up) || isinf(down1) || isinf(down2)) {	\
+				goto overflow;	\
+			} else if (n != 0 && down1 != 0 && down2 != 0) { \
 				*rb = (up / n) / (sqrt(down1 / n) * sqrt(down2 / n)); \
 				assert(!is_dbl_nil(*rb)); \
 			} else { \
@@ -1950,11 +1955,14 @@ GDKanalytical_correlation(BAT *r, BAT *b1, BAT *b2, BAT *s, BAT *e, int tpe)
 		ANALYTICAL_CORRELATION_CALC(dbl);
 		break;
 	default:
-		GDKerror("%s: correlation of type %s unsupported.\n", __func__, ATOMname(tpe));
+		GDKerror("correlation of type %s unsupported.\n", ATOMname(tpe));
 		return GDK_FAIL;
 	}
 	BATsetcount(r, cnt);
 	r->tnonil = nils == 0;
 	r->tnil = nils > 0;
 	return GDK_SUCCEED;
+  overflow:
+	GDKerror("22003!overflow in calculation.\n");
+	return GDK_FAIL;
 }

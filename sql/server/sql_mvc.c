@@ -463,7 +463,7 @@ void
 mvc_cancel_session(mvc *m)
 {
 	store_lock();
-	sql_trans_end(m->session);
+	sql_trans_end(m->session, 0);
 	store_unlock();
 }
 
@@ -482,13 +482,12 @@ mvc_trans(mvc *m)
 				qc_destroy(m->qc);
 			m->qc = qc_create(m->clientid, seqnr);
 			if (!m->qc) {
-				sql_trans_end(m->session);
+				sql_trans_end(m->session, 0);
 				store_unlock();
 				return -1;
 			}
 		} else { /* clean all but the prepared statements */
 			qc_clean(m->qc, false);
-			stack_pop_until(m, NR_GLOBAL_VARS);
 		}
 	}
 	store_unlock();
@@ -611,7 +610,6 @@ mvc_commit(mvc *m, int chain, const char *name, bool enabling_auto_commit)
 		if (m->qc) /* clean query cache, protect against concurrent access on the hash tables (when functions already exists, concurrent mal will
 build up the hash (not copied in the trans dup)) */
 			qc_clean(m->qc, false);
-		stack_pop_until(m, NR_GLOBAL_VARS);
 		m->session->schema = find_sql_schema(m->session->tr, m->session->schema_name);
 		TRC_INFO(SQL_TRANS, "Savepoint commit '%s' done\n", name);
 		return msg;
@@ -639,7 +637,7 @@ build up the hash (not copied in the trans dup)) */
 	/* if there is nothing to commit reuse the current transaction */
 	if (tr->wtime == 0) {
 		if (!chain) 
-			sql_trans_end(m->session);
+			sql_trans_end(m->session, 1);
 		m->type = Q_TRANS;
 		msg = WLCcommit(m->clientid);
 		store_unlock();
@@ -683,7 +681,7 @@ build up the hash (not copied in the trans dup)) */
 			freeException(other);
 		return msg;
 	}
-	sql_trans_end(m->session);
+	sql_trans_end(m->session, 1);
 	if (chain)
 		sql_trans_begin(m->session);
 	store_unlock();
@@ -708,7 +706,6 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 	assert(m->session->tr && m->session->tr->active);	/* only abort an active transaction */
 	if (m->qc) 
 		qc_clean(m->qc, false);
-	stack_pop_until(m, NR_GLOBAL_VARS);
 	if (name && name[0] != '\0') {
 		while (tr && (!tr->name || strcmp(tr->name, name) != 0))
 			tr = tr->parent;
@@ -739,7 +736,7 @@ mvc_rollback(mvc *m, int chain, const char *name, bool disabling_auto_commit)
 		/* make sure we do not reuse changed data */
 		if (tr->wtime)
 			tr->status = 1;
-		sql_trans_end(m->session);
+		sql_trans_end(m->session, 0);
 		if (chain) 
 			sql_trans_begin(m->session);
 	}
@@ -964,7 +961,7 @@ mvc_destroy(mvc *m)
 	store_lock();
 	if (tr) {
 		if (m->session->tr->active)
-			sql_trans_end(m->session);
+			sql_trans_end(m->session, 0);
 		while (tr->parent)
 			tr = sql_trans_destroy(tr, true);
 		m->session->tr = NULL;

@@ -1179,8 +1179,8 @@ rel_create_view(sql_query *query, sql_schema *ss, dlist *qname, dlist *column_sp
 		if (ast->token == SQL_SELECT) {
 			SelectNode *sn = (SelectNode *) ast;
 
-			if (sn->limit)
-				return sql_error(sql, 01, SQLSTATE(42000) "%s VIEW: LIMIT not supported", base);
+			if (sn->limit || sn->sample)
+				return sql_error(sql, 01, SQLSTATE(42000) "%s VIEW: %s not supported", base, sn->limit ? "LIMIT" : "SAMPLE");
 		}
 
 		sq = schema_selects(query, s, ast);
@@ -1381,9 +1381,7 @@ rel_create_schema(sql_query *query, dlist *auth_name, dlist *schema_elements, in
 		sql_schema *os = sql->session->schema;
 		dnode *n;
 		sql_schema *ss = SA_ZNEW(sql->sa, sql_schema);
-		sql_rel *ret;
-
-		ret = rel_create_schema_dll(sql->sa, name, auth, 0);
+		sql_rel *ret = rel_create_schema_dll(sql->sa, name, auth, 0);
 
 		ss->base.name = name;
 		ss->auth_id = auth_id;
@@ -1395,6 +1393,7 @@ rel_create_schema(sql_query *query, dlist *auth_name, dlist *schema_elements, in
 			sql_rel *res = rel_semantic(query, n->data.sym);
 			if (!res) {
 				rel_destroy(ret);
+				sql->session->schema = os;
 				return NULL;
 			}
 			ret = rel_list(sql->sa, ret, res);
@@ -1436,6 +1435,8 @@ sql_alter_table(sql_query *query, dlist *dl, dlist *qname, symbol *te, int if_ex
 			return rel_psm_block(sql->sa, new_exp_list(sql->sa));
 		return sql_error(sql, 02, SQLSTATE(3F000) "ALTER TABLE: no such schema '%s'", sname);
 	}
+	if (!mvc_schema_privs(sql, s))
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 
 	if ((t = mvc_bind_table(sql, s, tname)) == NULL) {
 		if (mvc_bind_table(sql, mvc_bind_schema(sql, "tmp"), tname) != NULL) 
@@ -1478,6 +1479,9 @@ sql_alter_table(sql_query *query, dlist *dl, dlist *qname, symbol *te, int if_ex
 									 TABLE_TYPE_DESCRIPTION(t->type, t->properties));
 				if (isDeclaredTable(pt))
 					return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: can't add a declared table into a %s",
+									 TABLE_TYPE_DESCRIPTION(t->type, t->properties));
+				if (isTempSchema(pt->s))
+					return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: can't add a temporary table into a %s",
 									 TABLE_TYPE_DESCRIPTION(t->type, t->properties));
 				if (strcmp(sname, nsname) != 0)
 					return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: all children tables of '%s.%s' must be "
@@ -2111,6 +2115,8 @@ rel_create_index(mvc *sql, char *iname, idx_type itype, dlist *qname, dlist *col
 
 	if (sname && !(s = mvc_bind_schema(sql, sname))) 
 		return sql_error(sql, 02, SQLSTATE(3F000) "CREATE INDEX: no such schema '%s'", sname);
+	if (!mvc_schema_privs(sql, s))
+		return sql_error(sql, 02, SQLSTATE(42000) "CREATE INDEX: access denied for %s to schema '%s'", stack_get_string(sql, "current_user"), s->base.name);
 	i = mvc_bind_idx(sql, s, iname);
 	if (i) 
 		return sql_error(sql, 02, SQLSTATE(42S11) "CREATE INDEX: name '%s' already in use", iname);
@@ -2515,6 +2521,10 @@ rel_rename_table(mvc *sql, char* schema_name, char *old_name, char *new_name, in
 	}
 	if (t->system)
 		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot rename a system table");
+	if (isView(t))
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot rename a view");
+	if (isDeclaredTable(t))
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot rename a declared table");
 	if (mvc_check_dependency(sql, t->base.id, TABLE_DEPENDENCY, NULL))
 		return sql_error(sql, 02, SQLSTATE(2BM37) "ALTER TABLE: unable to rename table '%s' (there are database objects which depend on it)", old_name);
 	if (strNil(new_name) || *new_name == '\0')
@@ -2561,6 +2571,8 @@ rel_rename_column(mvc *sql, char* schema_name, char *table_name, char *old_name,
 		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot rename a column in a system table");
 	if (isView(t))
 		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot rename column '%s': '%s' is a view", old_name, table_name);
+	if (isDeclaredTable(t))
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot rename a column in a declared table");
 	if (!(col = mvc_bind_column(sql, t, old_name)))
 		return sql_error(sql, 02, SQLSTATE(42S22) "ALTER TABLE: no such column '%s' in table '%s'", old_name, table_name);
 	if (mvc_check_dependency(sql, col->base.id, COLUMN_DEPENDENCY, NULL))
@@ -2607,10 +2619,12 @@ rel_set_table_schema(sql_query *query, char* old_schema, char *tname, char *new_
 	}
 	if (ot->system)
 		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: cannot set schema of a system table");
-	if (isTempSchema(os) || isTempTable(ot))
+	if (isTempSchema(os))
 		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: not possible to change a temporary table schema");
 	if (isView(ot))
 		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: not possible to change schema of a view");
+	if (isDeclaredTable(ot))
+		return sql_error(sql, 02, SQLSTATE(42000) "ALTER TABLE: not possible to change schema of a declared table");
 	if (mvc_check_dependency(sql, ot->base.id, TABLE_DEPENDENCY, NULL))
 		return sql_error(sql, 02, SQLSTATE(2BM37) "ALTER TABLE: unable to set schema of table '%s' (there are database objects which depend on it)", tname);
 	if (ot->members.set || ot->triggers.set)

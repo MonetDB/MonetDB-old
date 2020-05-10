@@ -371,8 +371,9 @@ static void ctl_handle_client(
 							 * other words: ignore any errors that shutdown_profiler
 							 * may have encountered.
 							 */
-							shutdown_profiler(dp->dbname, &stats);
-							if (stats != NULL)
+							if ((e = shutdown_profiler(dp->dbname, &stats)) != NULL) {
+								free(e);
+							} else if (stats != NULL)
 								msab_freeStatus(&stats);
 							pthread_mutex_lock(&dp->fork_lock);
 							terminateProcess(dp, type);
@@ -783,9 +784,13 @@ static void ctl_handle_client(
 				len = snprintf(buf2, sizeof(buf2), "OK1\n");
 				send_client("=");
 				for (int i = 0; i < nsnaps; i++) {
+					struct tm tm = { 0 };
+					char datebuf[100];
 					struct snapshot *snap = &snaps[i];
-					len = snprintf(buf2, sizeof(buf2), "%" PRIi64 " %" PRIu64 " %s %s\n",
-						(int64_t)snap->time,
+					gmtime_r(&snap->time, &tm);
+					strftime(datebuf, sizeof(datebuf), "%Y%m%dT%H%M%S", &tm);
+					len = snprintf(buf2, sizeof(buf2), "%s %" PRIu64 " %s %s\n",
+						datebuf,
 						(uint64_t)snap->size,
 						snap->dbname,
 						snap->path != NULL ? snap->path : "");
@@ -1173,8 +1178,10 @@ controlRunner(void *d)
 		}
 
 #ifdef HAVE_POLL
-		if ((pfd.revents & POLLIN) == 0)
+		if ((pfd.revents & POLLIN) == 0) {
+			free(p);
 			continue;
+		}
 #else
 		if (!FD_ISSET(usock, &fds)) {
 			free(p);

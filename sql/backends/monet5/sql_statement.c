@@ -215,22 +215,12 @@ static stmt *
 stmt_create(sql_allocator *sa, st_type type)
 {
 	stmt *s = SA_NEW(sa, stmt);
-	if(!s)
-		return NULL;
 
-	s->type = type;
-	s->op1 = NULL;
-	s->op2 = NULL;
-	s->op3 = NULL;
-	s->op4.lval = NULL;
-	s->flag = 0;
-	s->nrcols = 0;
-	s->key = 0;
-	s->aggr = 0;
-	s->nr = 0;
-	s->partition = 0;
-	s->tname = s->cname = NULL;
-	s->cand = NULL;
+	if (!s)
+		return NULL;
+	*s = (stmt) {
+		.type = type,
+	};
 	return s;
 }
 
@@ -325,12 +315,12 @@ stmt_var(backend *be, const char *varname, sql_subtype *t, int declare, int leve
 {
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = NULL;
-	char buf[IDLENGTH];
+	char *buf;
 
 	if (level == 1 ) { /* global */
 		int tt = t->type->localtype;
 
-		q = newStmt(mb, sqlRef, putName("getVariable"));
+		q = newStmt(mb, sqlRef, getVariableRef);
 		q = pushArgument(mb, q, be->mvc_var);
 		q = pushStr(mb, q, varname);
 		if (q == NULL)
@@ -338,14 +328,19 @@ stmt_var(backend *be, const char *varname, sql_subtype *t, int declare, int leve
 		setVarType(mb, getArg(q, 0), tt);
 		setVarUDFtype(mb, getArg(q, 0));
 	} else if (!declare) {
-		(void) snprintf(buf, sizeof(buf), "A%s", varname);
+		buf = SA_NEW_ARRAY(be->mvc->sa, char, strlen(varname) + 2);
+		if (!buf)
+			return NULL;
+		stpcpy(stpcpy(buf, "A"), varname);
 		q = newAssignment(mb);
 		q = pushArgumentId(mb, q, buf);
 	} else {
-		int tt;
+		int tt = t->type->localtype;
 
-		tt = t->type->localtype;
-		(void) snprintf(buf, sizeof(buf), "A%s", varname);
+		buf = SA_NEW_ARRAY(be->mvc->sa, char, strlen(varname) + 2);
+		if (!buf)
+			return NULL;
+		stpcpy(stpcpy(buf, "A"), varname);
 		q = newInstruction(mb, NULL, NULL);
 		if (q == NULL) {
 			return NULL;
@@ -522,7 +517,7 @@ stmt_tid(backend *be, sql_table *t, int partition)
 		s->nr = l[0];
 		return s;
 	}
-       	q = newStmt(mb, sqlRef, tidRef);
+	q = newStmt(mb, sqlRef, tidRef);
 	if (q == NULL)
 		return NULL;
 	setVarType(mb, getArg(q, 0), newBatType(tt));
@@ -695,7 +690,7 @@ stmt_append_col(backend *be, sql_column *c, stmt *b, int fake)
 		int *l = c->t->data;
 
 		if (c->colnr == 0) { /* append to tid column */
-			q = newStmt(mb, sqlRef, "grow");
+			q = newStmt(mb, sqlRef, growRef);
 			q = pushArgument(mb, q, l[0]);
 			q = pushArgument(mb, q, b->nr);
 		} 
@@ -785,7 +780,7 @@ stmt_update_col(backend *be, sql_column *c, stmt *tids, stmt *upd)
 	if (!c->t->s && c->t->data) { /* declared table */
 		int *l = c->t->data;
 
-		q = newStmt(mb, batRef, updateRef);
+		q = newStmt(mb, batRef, replaceRef);
 		q = pushArgument(mb, q, l[c->colnr+1]);
 		q = pushArgument(mb, q, tids->nr);
 		q = pushArgument(mb, q, upd->nr);
@@ -1489,6 +1484,9 @@ stmt_uselect(backend *be, stmt *op1, stmt *op2, comp_type cmptype, stmt *sub, in
 	} else {
 		assert (cmptype != cmp_filter);
 		if (is_semantics) {
+			assert(cmptype == cmp_equal || cmptype == cmp_notequal);
+			if (cmptype == cmp_notequal)
+				anti = !anti;
 			q = newStmt(mb, algebraRef, selectRef);
 			q = pushArgument(mb, q, l);
 			if (sub && !op1->cand)
@@ -1795,7 +1793,7 @@ stmt_tunion(backend *be, stmt *op1, stmt *op2)
 }
 
 stmt *
-stmt_tdiff(backend *be, stmt *op1, stmt *op2)
+stmt_tdiff(backend *be, stmt *op1, stmt *op2, stmt *lcand)
 {
 	InstrPtr q = NULL;
 	MalBlkPtr mb = be->mb;
@@ -1805,7 +1803,10 @@ stmt_tdiff(backend *be, stmt *op1, stmt *op2)
 	q = newStmt(mb, algebraRef, differenceRef);
 	q = pushArgument(mb, q, op1->nr); /* left */
 	q = pushArgument(mb, q, op2->nr); /* right */
-	q = pushNil(mb, q, TYPE_bat); /* left candidate */
+	if (lcand)
+		q = pushArgument(mb, q, lcand->nr); /* left */
+	else
+		q = pushNil(mb, q, TYPE_bat); /* left candidate */
 	q = pushNil(mb, q, TYPE_bat); /* right candidate */
 	q = pushBit(mb, q, FALSE);    /* nil matches */
 	q = pushBit(mb, q, FALSE);    /* do not clear nils */    
@@ -1831,7 +1832,7 @@ stmt_tdiff(backend *be, stmt *op1, stmt *op2)
 }
 
 stmt *
-stmt_tdiff2(backend *be, stmt *op1, stmt *op2)
+stmt_tdiff2(backend *be, stmt *op1, stmt *op2, stmt *lcand)
 {
 	InstrPtr q = NULL;
 	MalBlkPtr mb = be->mb;
@@ -1841,7 +1842,10 @@ stmt_tdiff2(backend *be, stmt *op1, stmt *op2)
 	q = newStmt(mb, algebraRef, differenceRef);
 	q = pushArgument(mb, q, op1->nr); /* left */
 	q = pushArgument(mb, q, op2->nr); /* right */
-	q = pushNil(mb, q, TYPE_bat); /* left candidate */
+	if (lcand)
+		q = pushArgument(mb, q, lcand->nr); /* left */
+	else
+		q = pushNil(mb, q, TYPE_bat); /* left candidate */
 	q = pushNil(mb, q, TYPE_bat); /* right candidate */
 	q = pushBit(mb, q, FALSE);    /* nil matches */
 	q = pushBit(mb, q, TRUE);     /* clear nils */
@@ -1867,7 +1871,7 @@ stmt_tdiff2(backend *be, stmt *op1, stmt *op2)
 }
 
 stmt *
-stmt_tinter(backend *be, stmt *op1, stmt *op2)
+stmt_tinter(backend *be, stmt *op1, stmt *op2, bool single)
 {
 	InstrPtr q = NULL;
 	MalBlkPtr mb = be->mb;
@@ -1880,6 +1884,7 @@ stmt_tinter(backend *be, stmt *op1, stmt *op2)
 	q = pushNil(mb, q, TYPE_bat); /* left candidate */
 	q = pushNil(mb, q, TYPE_bat); /* right candidate */
 	q = pushBit(mb, q, FALSE);    /* nil matches */
+	q = pushBit(mb, q, single?TRUE:FALSE);    /* max_one */
 	q = pushNil(mb, q, TYPE_lng); /* estimate */
 
 	if (q) {
@@ -1898,7 +1903,7 @@ stmt_tinter(backend *be, stmt *op1, stmt *op2)
 }
 
 stmt *
-stmt_join_cand(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int anti, comp_type cmptype, int is_semantics)
+stmt_join_cand(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int anti, comp_type cmptype, int is_semantics, bool single)
 {
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = NULL;
@@ -1913,6 +1918,8 @@ stmt_join_cand(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int 
 	}
 	if (op1->nr < 0 || op2->nr < 0)
 		return NULL;
+
+	assert (!single || cmptype == cmp_all);
 
 	switch (cmptype) {
 	case mark_in:
@@ -1936,7 +1943,7 @@ stmt_join_cand(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int 
 			return NULL;
 		break;
 	case cmp_notequal:
-		q = newStmt(mb, algebraRef, antijoinRef);
+		q = newStmt(mb, algebraRef, thetajoinRef);
 		q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
 		q = pushArgument(mb, q, op1->nr);
 		q = pushArgument(mb, q, op2->nr);
@@ -1948,6 +1955,7 @@ stmt_join_cand(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int 
 			q = pushNil(mb, q, TYPE_bat);
 		else
 			q = pushArgument(mb, q, rcand->nr);
+		q = pushInt(mb, q, JOIN_NE);
 		q = pushBit(mb, q, FALSE);
 		q = pushNil(mb, q, TYPE_lng);
 		if (q == NULL)
@@ -1987,6 +1995,7 @@ stmt_join_cand(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int 
 		q = pushReturn(mb, q, newTmpVariable(mb, TYPE_any));
 		q = pushArgument(mb, q, op1->nr);
 		q = pushArgument(mb, q, op2->nr);
+		q = pushBit(mb, q, single?TRUE:FALSE); /* max_one */
 		assert(!lcand && !rcand);
 		if (q == NULL)
 			return NULL;
@@ -2013,13 +2022,13 @@ stmt_join_cand(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int 
 }
 
 stmt *
-stmt_join(backend *be, stmt *l, stmt *r, int anti, comp_type cmptype, int is_semantics)
+stmt_join(backend *be, stmt *l, stmt *r, int anti, comp_type cmptype, int is_semantics, bool single)
 {
-	return stmt_join_cand(be, l, r, NULL, NULL, anti, cmptype, is_semantics); 
+	return stmt_join_cand(be, l, r, NULL, NULL, anti, cmptype, is_semantics, single); 
 }
 
 stmt *
-stmt_semijoin(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int is_semantics)
+stmt_semijoin(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int is_semantics, bool single)
 {
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = NULL;
@@ -2040,6 +2049,7 @@ stmt_semijoin(backend *be, stmt *op1, stmt *op2, stmt *lcand, stmt *rcand, int i
 	else
 		q = pushNil(mb, q, TYPE_bat);
 	q = pushBit(mb, q, is_semantics?TRUE:FALSE);
+	q = pushBit(mb, q, single?TRUE:FALSE); /* max_one */
 	q = pushNil(mb, q, TYPE_lng);
 	if (q == NULL)
 		return NULL;
@@ -2762,13 +2772,11 @@ stmt_table_clear(backend *be, sql_table *t)
 	InstrPtr q = NULL;
 
 	if (!t->s && t->data) { /* declared table */
-		int *l = t->data; 
-		int cnt = list_length(t->columns.set)+1, i;
+		int *l = t->data, cnt = list_length(t->columns.set)+1;
 
-		for (i = 0; i < cnt; i++) {
-			q = newStmt(mb, batRef, "clear");
+		for (int i = 0; i < cnt; i++) {
+			q = newStmt(mb, batRef, deleteRef);
 			q = pushArgument(mb, q, l[i]);
-			l[i] = getDestVar(q);
 		}
 	} else {
 		q = newStmt(mb, sqlRef, clear_tableRef);
@@ -2991,7 +2999,7 @@ stmt_Nop(backend *be, stmt *ops, sql_subfunc *f)
 		q = NULL;
 		if (strcmp(fimp, "rotate_xor_hash") == 0 &&
 		    strcmp(mod, calcRef) == 0 &&
-		    (q = newStmt(mb, mkeyRef, putName("bulk_rotate_xor_hash"))) == NULL)
+		    (q = newStmt(mb, mkeyRef, bulk_rotate_xor_hashRef)) == NULL)
 			return NULL;
 		if (!q) {
 			if (f->func->type == F_UNION)
@@ -3179,7 +3187,6 @@ stmt_aggr(backend *be, stmt *op1, stmt *grp, stmt *ext, sql_subfunc *op, int red
 	MalBlkPtr mb = be->mb;
 	InstrPtr q = NULL;
 	const char *mod, *aggrfunc;
-	char aggrF[64];
 	sql_subtype *res = op->res->h->data;
 	int restype = res->type->localtype;
 	bool complex_aggr = false;
@@ -3201,7 +3208,10 @@ stmt_aggr(backend *be, stmt *op1, stmt *grp, stmt *ext, sql_subfunc *op, int red
 					strncmp(aggrfunc, "covariance", 10) == 0 || strncmp(aggrfunc, "corr", 4) == 0;
 
 	if (ext) {
-		snprintf(aggrF, 64, "sub%s", aggrfunc);
+		char *aggrF = SA_NEW_ARRAY(be->mvc->sa, char, strlen(aggrfunc) + 4);
+		if (!aggrF)
+			return NULL;
+		stpcpy(stpcpy(aggrF, "sub"), aggrfunc);
 		aggrfunc = aggrF;
 		if (grp->nr < 0 || ext->nr < 0)
 			return NULL;
@@ -3769,13 +3779,16 @@ stmt_assign(backend *be, const char *varname, stmt *val, int level)
 	if (val && val->nr < 0)
 		return NULL;
 	if (level != 1) {	
-		char buf[IDLENGTH];
+		char *buf;
 
 		if (!val) {
 			/* drop declared table */
 			assert(0);
 		}
-		(void) snprintf(buf, sizeof(buf), "A%s", varname);
+		buf = SA_NEW_ARRAY(be->mvc->sa, char, strlen(varname) + 2);
+		if (!buf)
+			return NULL;
+		stpcpy(stpcpy(buf, "A"), varname);
 		q = newInstruction(mb, NULL, NULL);
 		if (q == NULL) {
 			return NULL;

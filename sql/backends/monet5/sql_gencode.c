@@ -117,7 +117,7 @@ relational_func_create_result(mvc *sql, MalBlkPtr mb, InstrPtr q, sql_rel *f)
 
 	if (q == NULL)
 		return NULL;
-	if (is_topn(r->op))
+	if (is_topn(r->op) || is_sample(r->op))
 		r = r->l;
 	if (!is_project(r->op))
 		r = rel_project(sql->sa, r, rel_projections(sql, r, NULL, 1, 1));
@@ -171,12 +171,19 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 			int type = t->type->localtype;
 			int varid = 0;
 			const char *nme = (op->op3)?op->op3->op4.aval->data.val.sval:op->cname;
-			char buf[64];
+			char *buf;
 
-			if (nme[0] != 'A')
-				snprintf(buf,64,"A%s",nme);
-			else
-				snprintf(buf,64,"%s",nme);
+			if (nme[0] != 'A') {
+				buf = SA_NEW_ARRAY(m->sa, char, strlen(nme) + 2);
+				if (buf)
+					stpcpy(stpcpy(buf, "A"), nme);
+			} else {
+				buf = sa_strdup(m->sa, nme);
+			}
+			if (!buf) {
+				sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
+				return -1;
+			}
 			varid = newVariable(curBlk, buf, strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
@@ -187,15 +194,25 @@ _create_relational_function(mvc *m, const char *mod, const char *name, sql_rel *
 
 		for (n = rel_ops->h; n && !curBlk->errors; n = n->next) {
 			sql_exp *e = n->data;
-			sql_subtype *t = &e->tpe;
+			sql_subtype *t = exp_subtype(e);
 			int type = t->type->localtype;
 			int varid = 0;
-			char buf[64];
+			char *buf;
 
-			if (e->type == e_atom)
-				snprintf(buf,64,"A%u",e->flag);
-			else
-				snprintf(buf,64,"A%s",exp_name(e));
+			if (e->type == e_atom) {
+				buf = SA_NEW_ARRAY(m->sa, char, IDLENGTH);
+				if (buf)
+					snprintf(buf, IDLENGTH, "A%u", e->flag);
+			} else {
+				const char *nme = exp_name(e);
+				buf = SA_NEW_ARRAY(m->sa, char, strlen(nme) + 2);
+				if (buf)
+					stpcpy(stpcpy(buf, "A"), nme);
+			}
+			if (!buf) {
+				sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
+				return -1;
+			}
 			varid = newVariable(curBlk, (char *)buf, strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
@@ -303,7 +320,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 		return -1;
 	}
 
-	if (is_topn(r->op))
+	if (is_topn(r->op) || is_sample(r->op))
 		r = r->l;
 	if (!is_project(r->op))
 		r = rel_project(m->sa, r, rel_projections(m, r, NULL, 1, 1));
@@ -350,9 +367,14 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 			int type = t->type->localtype;
 			int varid = 0;
 			const char *nme = (op->op3)?op->op3->op4.aval->data.val.sval:op->cname;
-			char buf[64];
+			char *buf = SA_NEW_ARRAY(m->sa, char, strlen(nme) + 2);
 
-			snprintf(buf,64,"A%s",nme);
+			if (!buf) {
+				GDKfree(lname);
+				sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
+				return -1;
+			}
+			stpcpy(stpcpy(buf, "A"), nme);
 			varid = newVariable(curBlk, buf,strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);
@@ -478,7 +500,7 @@ _create_relational_remote(mvc *m, const char *mod, const char *name, sql_rel *re
 			buf = tmp;
 		}
 
-		nr += snprintf(buf+nr, len-nr, "%s%s", next, n->next?"%%":"");
+		nr += snprintf(buf+nr, len-nr, "%s%s", next, n->next?"%":"");
 		GDKfree(next);
 	}
 	if (buf) {
@@ -1319,12 +1341,21 @@ backend_create_sql_func(backend *be, sql_func *f, list *restypes, list *ops)
 			sql_arg *a = n->data;
 			int type = a->type.type->localtype;
 			int varid = 0;
-			char buf[IDLENGTH];
+			char *buf;
 
-			if (a->name)
-				(void) snprintf(buf, IDLENGTH, "A%s", a->name);
-			else
-				(void) snprintf(buf, IDLENGTH, "A%d", argc);
+			if (a->name) {
+				buf = SA_NEW_ARRAY(m->sa, char, strlen(a->name) + 2);
+				if (buf)
+					stpcpy(stpcpy(buf, "A"), a->name);
+			} else {
+				buf = SA_NEW_ARRAY(m->sa, char, IDLENGTH);
+				if (buf)
+					(void) snprintf(buf, IDLENGTH, "A%d", argc);
+			}
+			if (!buf) {
+				sql_error(m, 001, SQLSTATE(HY013) MAL_MALLOC_FAIL);
+				goto cleanup;
+			}
 			varid = newVariable(curBlk, buf, strlen(buf), type);
 			curInstr = pushArgument(curBlk, curInstr, varid);
 			setVarType(curBlk, varid, type);

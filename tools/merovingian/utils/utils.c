@@ -35,6 +35,13 @@
 #endif
 #endif
 
+#ifdef HAVE_SYS_PARAM_H
+# include <sys/param.h>
+#endif
+#ifdef BSD /* BSD macro is defined in sys/param.h */
+# include <sys/stat.h>  /* Needed for S_IRUSR, S_IWUSR */
+#endif
+
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
 #endif
@@ -259,6 +266,16 @@ setConfVal(confkeyval *ckv, const char *val) {
 				return(strdup(buf));
 			}
 			/* TODO: check full URL? */
+		}; break;
+		case LADDR: {
+			if (strncmp(val, "127.0.0.1", strlen("127.0.0.1")) != 0 &&
+				strncmp(val, "0.0.0.0", strlen("0.0.0.0")) != 0) {
+				char buf[256];
+				snprintf(buf, sizeof(buf),
+						 "only valid values for %s are \"127.0.0.1\" or \"0.0.0.0\"\n",
+						 ckv->key);
+				return(strdup(buf));
+			}
 		}; break;
 		case STR:
 		case OTHER:
