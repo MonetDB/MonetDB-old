@@ -30,11 +30,17 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
     // and all tables exist on all nodes (see the Python script for more details)
     str home_node = "localhost:50000";
     int next_node_idx = 2;
-    const char* landscape[3] = {
+    // const char* landscape[3] = {
+    //     "localhost:50000:mdb1",
+    //     "localhost:50001:mdb2",
+    //     "localhost:50002:mdb3",
+    // };
+
+    const char* landscape[2] = {
         "localhost:50000:mdb1",
-        "localhost:50001:mdb2",
-        "localhost:50002:mdb3",
+        "localhost:50001:mdb2"
     };
+    size_t landscape_size = sizeof landscape / sizeof landscape[0];
 
     // check if optimizer has been applied
     if(optimizerIsApplied(mb, "hh"))
@@ -78,10 +84,10 @@ OPThitchhikerImplementation(Client cntxt, MalBlkPtr mb, MalStkPtr stk, InstrPtr 
                     q = pushInt(mb, q, next_node_idx);
 
                     // landscape-fmt
-                    q = pushStr(mb, q, "sss");
+                    // q = pushStr(mb, q, "sss");
 
                     // fill landscape info
-                    for(j = 0; j < 3; j++)
+                    for(j = 0; j < landscape_size; j++)
                         q = pushStr(mb, q, landscape[j]);
 
                     // getArg(q, 0) = newTmpVariable(mb, TYPE_any);    
