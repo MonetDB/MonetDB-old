@@ -1377,8 +1377,7 @@ sqltypeinit( sql_allocator *sa)
 	sql_create_aggr(sa, "sum", "aggr", "sum", FALSE, MONINT, 1, MONINT);
 	sql_create_aggr(sa, "sum", "aggr", "sum", FALSE, DAYINT, 1, DAYINT);
 	sql_create_aggr(sa, "sum", "aggr", "sum", FALSE, SECINT, 1, SECINT);
-	/* do DBL first so that it is chosen as cast destination for
-	 * unknown types */
+	/* do DBL first so that it is chosen as cast destination for unknown types */
 	sql_create_aggr(sa, "avg", "aggr", "avg", FALSE, DBL, 1, DBL);
 	sql_create_aggr(sa, "avg", "aggr", "avg", FALSE, DBL, 1, BTE);
 	sql_create_aggr(sa, "avg", "aggr", "avg", FALSE, DBL, 1, SHT);
