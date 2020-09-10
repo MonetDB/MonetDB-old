@@ -1703,6 +1703,8 @@ exp_reset_card_and_freevar(visitor *v, sql_rel *rel, sql_exp *e, int depth)
  * TODO move the decimal scale handling to this function.
  */
 #define is_division(sf) (strcmp(sf->func->base.name, "sql_div") == 0)
+#define is_multiplication(sf) (strcmp(sf->func->base.name, "sql_mul") == 0)
+
 static sql_exp *
 exp_physical_types(visitor *v, sql_rel *rel, sql_exp *e, int depth)
 {
@@ -1727,32 +1729,50 @@ exp_physical_types(visitor *v, sql_rel *rel, sql_exp *e, int depth)
 		sql_subfunc *f = e->f;
 
 		/* multiplication and division on decimals */
+		if (is_multiplication(f) && list_length(args) == 2) {
+			sql_exp *le = args->h->data, *re = args->h->next->data;
+			sql_subtype *lt = exp_subtype(le), *rt = exp_subtype(re);
 
-		/* multiplication and division on intervals */
-		if (is_division(f) && list_length(args) == 2) {
-			sql_exp *le = args->h->data;
-			sql_subtype *lt = exp_subtype(le);
+			if (lt->type->eclass == EC_SEC || lt->type->eclass == EC_MONTH) {
+				if (rt->type->eclass == EC_DEC && rt->scale) {
+					int scale = rt->scale; /* shift with scale */
+					sql_subtype *it = sql_bind_localtype(lt->type->base.name);
+					sql_subfunc *c = sql_bind_func(v->sql->sa, v->sql->session->schema, "scale_down", lt, it, F_FUNC);
 
-			/* first arg INTERVAL */
-			if (lt->type->eclass == EC_SEC) { /* shift with scale */
-				sql_exp *re = args->h->next->data;
-				sql_subtype *rt = exp_subtype(re);
-
-				if (rt->type->eclass == EC_DEC) {
-					if (rt->scale) {
-						int scale = rt->scale;
-						sql_subfunc *c = sql_bind_func(v->sql->sa, v->sql->session->schema, "scale_up", lt, lt, F_FUNC);
-
-						if (!c)
-							return NULL;
-#ifdef HAVE_HGE
-						hge val = scale2value(scale);
-#else
-						lng val = scale2value(scale);
-#endif
-						atom *a = atom_int(v->sql->sa, lt, val);
-						return exp_binop(v->sql->sa, e, exp_atom(v->sql->sa, a), c);
+					if (!c) {
+						TRC_CRITICAL(SQL_PARSER, "scale_down missing (%s)\n", lt->type->base.name);
+						return NULL;
 					}
+#ifdef HAVE_HGE
+					hge val = scale2value(scale);
+#else
+					lng val = scale2value(scale);
+#endif
+					atom *a = atom_int(v->sql->sa, it, val);
+					return exp_binop(v->sql->sa, e, exp_atom(v->sql->sa, a), c);
+				}
+			}
+		} else if (is_division(f) && list_length(args) == 2) {
+			sql_exp *le = args->h->data, *re = args->h->next->data;
+			sql_subtype *lt = exp_subtype(le), *rt = exp_subtype(re);
+
+			if (lt->type->eclass == EC_SEC) {
+				if (rt->type->eclass == EC_DEC && rt->scale) {
+					int scale = rt->scale; /* shift with scale */
+					sql_subtype *it = sql_bind_localtype(lt->type->base.name);
+					sql_subfunc *c = sql_bind_func(v->sql->sa, v->sql->session->schema, "scale_up", lt, it, F_FUNC);
+
+					if (!c) {
+						TRC_CRITICAL(SQL_PARSER, "scale_up missing (%s)\n", lt->type->base.name);
+						return NULL;
+					}
+#ifdef HAVE_HGE
+					hge val = scale2value(scale);
+#else
+					lng val = scale2value(scale);
+#endif
+					atom *a = atom_int(v->sql->sa, it, val);
+					return exp_binop(v->sql->sa, e, exp_atom(v->sql->sa, a), c);
 				}
 			}
 		}
@@ -2343,22 +2363,6 @@ rewrite_anyequal(mvc *sql, sql_rel *rel, sql_exp *e, int depth)
 	return e;
 }
 
-static const char *
-compare_aggr_op( char *compare, int quantifier)
-{
-	if (quantifier == 0)
-		return "zero_or_one";
-	switch(compare[0]) {
-	case '<':
-		if (compare[1] == '>')
-			return "all";
-		return "min";
-	case '>':
-		return "max";
-	default:
-		return "all";
-	}
-}
 /* exp visitor */
 /* rewrite compare expressions including quantifiers any and all */
 static sql_exp *
@@ -2474,14 +2478,6 @@ rewrite_compare(visitor *v, sql_rel *rel, sql_exp *e, int depth)
 						is_cnt = 1;
 					}
 					re = exp_aggr1(v->sql->sa, re, a, 0, 1, CARD_AGGR, has_nil(re));
-					re = rel_groupby_add_aggr(v->sql, rsq, re);
-					set_processed(rsq);
-				} else if (rsq && exp_card(re) > CARD_ATOM) {
-					sql_subfunc *zero_or_one = sql_bind_func(v->sql->sa, NULL, compare_aggr_op(op, quantifier), exp_subtype(re), NULL, F_AGGR);
-
-					rsq = rel_groupby(v->sql, rsq, NULL);
-
-					re = exp_aggr1(v->sql->sa, re, zero_or_one, 0, 0, CARD_AGGR, has_nil(re));
 					re = rel_groupby_add_aggr(v->sql, rsq, re);
 					set_processed(rsq);
 				}
